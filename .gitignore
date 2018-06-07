@@ -105,3 +105,6 @@ venv.bak/
 
 # swap files
 *.swp
+
+# storage db files
+*.db

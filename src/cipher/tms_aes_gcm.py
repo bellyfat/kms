@@ -6,7 +6,6 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 import common.tms_logger as logger
 
-
 class AES_GCM():
 
     NONCE_BYTE_SIZE = 12
@@ -22,7 +21,6 @@ class AES_GCM():
 
             cipher_data = self.__aesgcm.encrypt(nonce, plain_data, None)
         except Exception as e:
-            logger.error(e)
             raise
 
         return cipher_data, nonce
@@ -31,7 +29,6 @@ class AES_GCM():
         try:
             plain_data = self.__aesgcm.decrypt(nonce, cipher_data, None)
         except Exception as e:
-            logger.error(e)
             raise
 
         return plain_data

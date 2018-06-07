@@ -1,7 +1,8 @@
 import os
-import sys
 import cipher.tms_aes as aes
 import common.tms_logger as logger
+import cryptography
+
 
 class STORAGE_CRYPTO:
     __path = None
@@ -15,13 +16,18 @@ class STORAGE_CRYPTO:
         if cipher.upper() == "AES":
             if mode.upper() == "GCM":
                 self.__cipher = aes.init(mode, key)
-                return
-        logger.error("Invalid ciper or mode for crypto storage initialization.")
+            else:
+                raise ValueError('Invalid Cipher mode for storage initialization')
+        else:
+            raise ValueError('Invalid Cipher for storage initialization')
+        # create empty file not exit
+        if not os.path.exists(self.__path):
+            with open(self.__path, "wb", 0):
+                pass
 
     def save(self, data):
         try:
             if data is None:
-                logger.error("No data to save")
                 raise("No data to save")
 
             # Encrypt Data
@@ -35,25 +41,35 @@ class STORAGE_CRYPTO:
                 fh.write(file_data)
 
         except Exception as e:
-            logger.error(e)
-            logger.error("saving data to file failed using crypto storage")
-            raise
+            raise ValueError("saving data to file failed using crypto storage")
 
     def load(self):
+        data = None
+        # Read data
         try:
-            data = None
-            # Read data
             with open(self.__path, "rb", 0) as fh:
                 file_data = fh.read()
                 # Decrypt data
                 cipher_data = file_data[self.__cipher.NONCE_BYTE_SIZE:]
                 nonce = file_data[:self.__cipher.NONCE_BYTE_SIZE]
-                data = self.__cipher.decrypt(cipher_data, nonce)
+                try:
+                    data = self.__cipher.decrypt(cipher_data, nonce)
+                except cryptography.exceptions.InvalidTag as e:
+                    raise ValueError('storage corrupted or not initialized')
+        except BaseException as e:
+            raise ValueError("Failed to load data from file")
 
-            if data is None:
-                raise("Failed to load data from File")
-            return data
-        except Exception as e:
-            logger.error(e)
-            logger.error("saving data to file failed using crypto storage")
-            raise
+        if data is None:
+            raise ValueError("Failed to load data from File")
+        return data
+
+    def is_valid(self):
+        try:
+            self.load()
+        except BaseException as e:
+            return False
+
+        return True
+
+    def is_initialized(self):
+        return self.__path and self.__cipher

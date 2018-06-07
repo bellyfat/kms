@@ -1,6 +1,6 @@
 import unittest
 from data_tree.tms_data_tree import DataTree
-
+from common.exception import TMSError
 
 class TestDataTree(unittest.TestCase):
 
@@ -10,55 +10,63 @@ class TestDataTree(unittest.TestCase):
                 return i
         return None
 
+    def __add_to_root(self, node):
+        return {
+                    'id': 'root',
+                    'key': b'root',
+                    'attrib': {},
+                    'children': [node]
+               }
+
     def test_add_node_at_root(self):
         d = DataTree()
         n = {'id': 'a1', 'key': b'1234', 'attrib': {}, 'children': []}
         path = '/'
         d.add_node(path, n)
         tree = d.get_tree()
-        node = self.__get_list_item_by_id(tree, 'a1')
+        node = self.__get_list_item_by_id(tree['children'], 'a1')
         self.assertEqual(n, node)
 
     def test_add_tree_in_constructor(self):
-        t = [{'id': 'a1', 'key': b'1234', 'attrib': {}, 'children': []}]
+        t = {'id': 'a1', 'key': b'1234', 'attrib': {}, 'children': []}
         d = DataTree(t)
         tree = d.get_tree()
-        self.assertEqual(t, tree)
+        self.assertEqual(self.__add_to_root(t), tree)
 
     def test_init_with_missing_optional_field(self):
-        t1 = [{'id': 'a1', 'key': b'1234', 'children': []}]
+        t1 = {'id': 'a1', 'key': b'1234', 'children': []}
         d = DataTree(t1)
-        t2 = [{'id': 'a1', 'key': b'1234', 'attrib': {}, 'children': []}]
+        t2 = {'id': 'a1', 'key': b'1234', 'attrib': {}, 'children': []}
         tree = d.get_tree()
-        self.assertEqual(t2, tree)
+        self.assertEqual(self.__add_to_root(t2), tree)
 
     def test_init_with_missing_mandatory_field(self):
-        t1 = [{'id': 'a1', 'children': []}]
-        self.assertRaises(ValueError, DataTree, t1)
-        t2 = [{'key': b'1234', 'children': []}]
-        self.assertRaises(ValueError, DataTree, t2)
+        t1 = {'id': 'a1', 'children': []}
+        self.assertRaises(TMSError, DataTree, t1)
+        t2 = {'key': b'1234', 'children': []}
+        self.assertRaises(TMSError, DataTree, t2)
 
     def test_init_with_missing_optional_field_in_children(self):
-        t1 = [{'id': 'a1', 'key': b'1234',
+        t1 = {'id': 'a1', 'key': b'1234',
                'children': [{'id': 'a1',
-                             'key': b'1234'}]}]
+                             'key': b'1234'}]}
         d = DataTree(t1)
-        t2 = [{'id': 'a1', 'key': b'1234', 'attrib': {},
+        t2 = {'id': 'a1', 'key': b'1234', 'attrib': {},
                'children': [{'id': 'a1',
                              'key': b'1234',
                              'attrib': {},
-                             'children': []}]}]
+                             'children': []}]}
         tree = d.get_tree()
-        self.assertEqual(t2, tree)
+        self.assertEqual(self.__add_to_root(t2), tree)
 
     def test_init_with_missing_mandatory_field_in_children(self):
         d = DataTree()
         t1 = {'id': 'a1', 'key': b'1234',
               'children': [{'key': b'1234'}]}
-        self.assertRaises(ValueError, d.add_node, '/', t1)
+        self.assertRaises(TMSError, d.add_node, '/', t1)
         t2 = {'id': 'a1', 'key': b'1234',
               'children': [{'id': 'a1'}]}
-        self.assertRaises(ValueError, d.add_node, '/', t2)
+        self.assertRaises(TMSError, d.add_node, '/', t2)
 
     def test_add_node_with_missing_optional_field_in_children(self):
         d = DataTree()
@@ -77,10 +85,10 @@ class TestDataTree(unittest.TestCase):
     def test_add_node_with_missing_mandatory_field_in_children(self):
         t1 = [{'id': 'a1', 'key': b'1234',
                'children': [{'key': b'1234'}]}]
-        self.assertRaises(ValueError, DataTree, t1)
+        self.assertRaises(TMSError, DataTree, t1)
         t2 = [{'id': 'a1', 'key': b'1234',
                'children': [{'id': 'a1'}]}]
-        self.assertRaises(ValueError, DataTree, t2)
+        self.assertRaises(TMSError, DataTree, t2)
 
     def test_add_duplicate_node(self):
         d = DataTree()
@@ -91,10 +99,10 @@ class TestDataTree(unittest.TestCase):
 
         n = {'id': 'a1', 'key': b'1234', 'children': []}
         path = '/'
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         n = {'id': 'b1', 'key': b'1234', 'children': []}
         path = '/a1/'
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
 
     def test_add_tree_at_root(self):
         d = DataTree()
@@ -102,8 +110,10 @@ class TestDataTree(unittest.TestCase):
              'children': [{'id': 'b1', 'key': b'1234', 'children': []}]}
         path = '/'
         d.add_node(path, n)
+        n['attrib'] = {}
+        n['children'][0]['attrib'] = {}
         tree = d.get_tree()
-        node = self.__get_list_item_by_id(tree, 'a1')
+        node = self.__get_list_item_by_id(tree['children'], 'a1')
         self.assertEqual(n, node)
 
     def test_add_n_level_hierarchy(self):
@@ -120,43 +130,43 @@ class TestDataTree(unittest.TestCase):
         t = tree
         for l in range(100):
             level_id = 'a' + str(l)
-            n = self.__get_list_item_by_id(t, level_id)
+            n = self.__get_list_item_by_id(t['children'], level_id)
             self.assertEqual(n.get('id'), level_id)
-            t = n['children']
+            t = n
 
     def test_addnode_without_id(self):
         d = DataTree()
         n = {'children': [], 'key': b'1234'}
         path = '/'
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
 
     def test_addnode_without_key(self):
         d = DataTree()
         n = {'children': [], 'id': 'a1'}
         path = '/'
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
 
     def test_addnode_with_invalid_key(self):
         d = DataTree()
         path = '/'
         n = {'children': [], 'id': 'a1', 'key': None}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         n = {'children': [], 'id': 'a1', 'key': 'abc'}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         n = {'children': [], 'id': 'a1', 'key': {}}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         n = {'children': [], 'id': 'a1', 'key': b''}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
 
     def test_addnode_with_invalid_attrib(self):
         d = DataTree()
         path = '/'
         n = {'children': [], 'id': 'a1', 'key': b'123', 'attrib': b''}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         n = {'children': [], 'id': 'a1', 'key': b'123', 'attrib': 1}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         n = {'children': [], 'id': 'a1', 'key': b'123', 'attrib': 'test'}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
 
     def test_addnode_without_children(self):
         d = DataTree()
@@ -165,6 +175,7 @@ class TestDataTree(unittest.TestCase):
         d.add_node(path, n)
 
         n['children'] = []
+        n['attrib'] = {}
 
         self.assertEqual(d.get_node('/a1'), n)
 
@@ -172,21 +183,21 @@ class TestDataTree(unittest.TestCase):
         d = DataTree()
         path = '/'
         n = {'id': '', 'key': b'1234'}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         n = {'id': 1, 'key': b'1234'}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         n = {'id': None, 'key': b'1234'}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
 
     def test_addnode_with_invalid_children(self):
         d = DataTree()
         path = '/'
         n = {'children': '', 'key': b'1234'}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         n = {'children': 1, 'key': b'1234'}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         n = {'children': None, 'key': b'1234'}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
 
     def test_add_n_children(self):
         d = DataTree()
@@ -201,62 +212,61 @@ class TestDataTree(unittest.TestCase):
             d.add_node(path, n)
 
         tree = d.get_tree()
-        t = self.__get_list_item_by_id(tree, 'a1')
+        t = self.__get_list_item_by_id(tree['children'], 'a1')
         self.assertNotEqual(t, None)
         t = self.__get_list_item_by_id(t['children'], 'b1')
         self.assertNotEqual(t, None)
-        t = t['children']
 
         for l in range(100):
             child_id = 'c' + str(l)
-            n = self.__get_list_item_by_id(t, child_id)
+            n = self.__get_list_item_by_id(t['children'], child_id)
             self.assertEqual(n.get('id'), child_id)
 
     def test_addnode_without_path(self):
         d = DataTree()
         n = {'children': [], 'key': b'1234', 'id': 'a1'}
         path = None
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
 
     def test_addnode_with_invalid_path(self):
         d = DataTree()
         n = {'children': [], 'key': b'1234', 'id': 'x1'}
         path = ''
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         path = 'abc'
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         path = '/a3'
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         path = '/a2/'
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         path = 1
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         path = {}
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
         path = '/'
         d.add_node(path, n)
         n = {'children': [], 'key': b'1234', 'id': 'x2'}
         path = '/a4'
-        self.assertRaises(ValueError, d.add_node, path, n)
+        self.assertRaises(TMSError, d.add_node, path, n)
 
     def test_getnode_with_invalid_path(self):
         d = DataTree()
         path = None
-        self.assertRaises(ValueError, d.get_node, path)
+        self.assertRaises(TMSError, d.get_node, path)
         path = ''
-        self.assertRaises(ValueError, d.get_node, path)
+        self.assertRaises(TMSError, d.get_node, path)
         path = 'abc'
-        self.assertRaises(ValueError, d.get_node, path)
+        self.assertRaises(TMSError, d.get_node, path)
         path = '/a1'
-        self.assertRaises(ValueError, d.get_node, path)
+        self.assertRaises(TMSError, d.get_node, path)
         path = '/a1/'
-        self.assertRaises(ValueError, d.get_node, path)
+        self.assertRaises(TMSError, d.get_node, path)
         path = '//'
-        self.assertRaises(ValueError, d.get_node, path)
+        self.assertRaises(TMSError, d.get_node, path)
         path = 1
-        self.assertRaises(ValueError, d.get_node, path)
+        self.assertRaises(TMSError, d.get_node, path)
         path = {}
-        self.assertRaises(ValueError, d.get_node, path)
+        self.assertRaises(TMSError, d.get_node, path)
 
     def test_get_n_level_children(self):
         d = DataTree()
@@ -298,21 +308,19 @@ class TestDataTree(unittest.TestCase):
     def test_getnode_children_with_invalid_path(self):
         d = DataTree()
         path = None
-        self.assertRaises(ValueError, d.get_node_children, path)
+        self.assertRaises(TMSError, d.get_node_children, path)
         path = ''
-        self.assertRaises(ValueError, d.get_node_children, path)
+        self.assertRaises(TMSError, d.get_node_children, path)
         path = 'abc'
-        self.assertRaises(ValueError, d.get_node_children, path)
+        self.assertRaises(TMSError, d.get_node_children, path)
         path = '/a1'
-        self.assertRaises(ValueError, d.get_node_children, path)
+        self.assertRaises(TMSError, d.get_node_children, path)
         path = '/a1/'
-        self.assertRaises(ValueError, d.get_node_children, path)
-        path = '//'
-        self.assertRaises(ValueError, d.get_node_children, path)
+        self.assertRaises(TMSError, d.get_node_children, path)
         path = 1
-        self.assertRaises(ValueError, d.get_node_children, path)
+        self.assertRaises(TMSError, d.get_node_children, path)
         path = {}
-        self.assertRaises(ValueError, d.get_node_children, path)
+        self.assertRaises(TMSError, d.get_node_children, path)
 
     def test_get_node_children(self):
         d = DataTree()
@@ -355,24 +363,24 @@ class TestDataTree(unittest.TestCase):
             self.assertNotEqual(t, None)
 
     def test_add_node_attribute(self):
-        n = [{'id': 'a1', 'key': b'1234', 'children': []}]
+        n = {'id': 'a1', 'key': b'1234', 'children': []}
         d = DataTree(n)
         d.add_node_attrib('/a1', 'attrib1', 123)
         a = d.get_node_attrib('/a1', 'attrib1')
         self.assertEqual(a, 123)
 
     def test_add_node_attribute_with_invalid_name(self):
-        n = [{'id': 'a1', 'key': b'1234', 'children': []}]
+        n = {'id': 'a1', 'key': b'1234', 'children': []}
         d = DataTree(n)
-        self.assertRaises(ValueError, d.add_node_attrib, '/a1', '', 123)
-        self.assertRaises(ValueError, d.add_node_attrib, '/a1', None, 123)
-        self.assertRaises(ValueError, d.add_node_attrib, '/a1', 123, 123)
-        self.assertRaises(ValueError, d.add_node_attrib, '/a1', {}, 123)
+        self.assertRaises(TMSError, d.add_node_attrib, '/a1', '', 123)
+        self.assertRaises(TMSError, d.add_node_attrib, '/a1', None, 123)
+        self.assertRaises(TMSError, d.add_node_attrib, '/a1', 123, 123)
+        self.assertRaises(TMSError, d.add_node_attrib, '/a1', {}, 123)
 
     def test_del_node_attribute(self):
-        n = [{'id': 'a1', 'key': b'1234',
+        n = {'id': 'a1', 'key': b'1234',
               'attrib': {'attrib1': 123},
-              'children': []}]
+              'children': []}
         d = DataTree(n)
         a = d.get_node_attrib('/a1', 'attrib1')
         self.assertEqual(a, 123)
@@ -381,7 +389,7 @@ class TestDataTree(unittest.TestCase):
         self.assertEqual(a, None)
 
     def test_get_node_attribute_list(self):
-        t1 = [{'id': 'a1', 'key': b'1234', 'attrib': {},
+        t1 = {'id': 'a1', 'key': b'1234', 'attrib': {},
               'children': [{
                                 'id': 'a1',
                                 'key': b'1234',
@@ -395,16 +403,111 @@ class TestDataTree(unittest.TestCase):
                                 'children': []
                            },
                            {
-                                'id': 'a1',
+                                'id': 'a2',
                                 'key': b'1234',
                                 'attrib': {},
                                 'children': []
-                           }]}]
+                           }]}
 
         d = DataTree(t1)
         nl = d.get_node_attrib_list('/a1/a1')
-        self.assertEqual(t1[0]['children'][0]['attrib'], nl)
+        self.assertEqual(t1['children'][0]['attrib'], nl)
 
+
+    def test_del_node(self):
+        t1 = {'id': 'a1', 'key': b'1234', 'attrib': {},
+              'children': [{
+                                'id': 'a1',
+                                'key': b'1234',
+                                'attrib': {
+                                    'attrib1': 123,
+                                    'attrib2': '1234',
+                                    'attrib3': {'abc': 123},
+                                    'attrib4': [1236],
+                                    'attrib5': b'1273'
+                                },
+                                'children': []
+                           },
+                           {
+                                'id': 'a2',
+                                'key': b'1234',
+                                'attrib': {},
+                                'children': []
+                           }]}
+
+        d = DataTree(t1)
+        node = d.get_node('/a1/a1')
+        self.assertEqual(node, t1['children'][0])
+        node = d.del_node('/a1/a1')
+        self.assertRaises(TMSError, d.get_node, '/a1/a1')
+
+    def test_del_node_invalid_path(self):
+        t1 = {'id': 'a1', 'key': b'1234', 'attrib': {},
+              'children': [{
+                                'id': 'a1',
+                                'key': b'1234',
+                                'attrib': {
+                                    'attrib1': 123,
+                                    'attrib2': '1234',
+                                    'attrib3': {'abc': 123},
+                                    'attrib4': [1236],
+                                    'attrib5': b'1273'
+                                },
+                                'children': []
+                           },
+                           {
+                                'id': 'a2',
+                                'key': b'1234',
+                                'attrib': {},
+                                'children': []
+                           }]}
+
+        d = DataTree(t1)
+        node = d.get_node('/a1/a1')
+        self.assertEqual(node, t1['children'][0])
+        node = d.del_node('/a1/a1')
+        self.assertRaises(TMSError, d.get_node, '/a1/a1')
+        self.assertRaises(TMSError, d.del_node, '/a1/a1/a1')
+        self.assertRaises(TMSError, d.del_node, '/a1/a5')
+        self.assertRaises(TMSError, d.del_node, '/')
+
+
+    def test_immutable_responses(self):
+        t1 = {'id': 'a1', 'key': b'1234', 'attrib': {},
+              'children': [{
+                                'id': 'a1',
+                                'key': b'1234',
+                                'attrib': {
+                                    'attrib1': 123,
+                                    'attrib2': '1234',
+                                    'attrib3': {'abc': 123},
+                                    'attrib4': [1236],
+                                    'attrib5': b'1273'
+                                },
+                                'children': []
+                           },
+                           {
+                                'id': 'a2',
+                                'key': b'1234',
+                                'attrib': {},
+                                'children': []
+                           }]}
+
+        d = DataTree(t1)
+        t1['id'] = 'b1'
+        self.assertRaises(TMSError, d.get_node, '/b1')
+
+        n1 = d.get_node('/a1/a1')
+        n1['key'] = b'xyz'
+        n2 = d.get_node('/a1/a1')
+        self.assertEqual(n2['key'], b'1234')
+
+        a1 = d.get_node_attrib_list('/a1/a1')
+        a1['attrib3'] = b'xyz'
+        a2 = d.get_node_attrib_list('/a1/a1')
+        self.assertEqual(a2['attrib3'], {'abc': 123})
+
+       
 
 if __name__ == '__main__':
     unittest.main()
